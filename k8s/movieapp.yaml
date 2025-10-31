@@ -1,0 +1,130 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: movie-db-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: movie-db
+spec:
+  selector:
+    matchLabels:
+      app: movie-db
+  template:
+    metadata:
+      labels:
+        app: movie-db
+    spec:
+      containers:
+        - name: movie-db
+          image: mysql:8.0
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_DATABASE
+              value: movie_db
+            - name: MYSQL_USER
+              value: movieuser
+            - name: MYSQL_PASSWORD
+              value: moviepass
+            - name: MYSQL_ROOT_PASSWORD
+              value: rootpass
+          volumeMounts:
+            - name: movie-db-storage
+              mountPath: /var/lib/mysql
+            - name: db-init-scripts
+              mountPath: /docker-entrypoint-initdb.d
+          livenessProbe:
+            exec:
+              command: ["mysqladmin", "ping", "-h", "localhost"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["mysqladmin", "ping", "-h", "localhost"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      volumes:
+        - name: movie-db-storage
+          persistentVolumeClaim:
+            claimName: movie-db-pvc
+        - name: db-init-scripts
+          hostPath:
+            path: ./src/main/resources/db/migration  # optional; adjust if using ConfigMap
+            type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: movie-db
+spec:
+  type: ClusterIP
+  selector:
+    app: movie-db
+  ports:
+    - port: 3306
+      targetPort: 3306
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: movie-service
+spec:
+  selector:
+    matchLabels:
+      app: movie-service
+  template:
+    metadata:
+      labels:
+        app: movie-service
+    spec:
+      containers:
+        - name: movie-service
+          image: 543816070942.dkr.ecr.us-east-1.amazonaws.com/movieapp-backend:29  # replace with actual image
+          ports:
+            - containerPort: 8081
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: docker
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:mysql://movie-db:3306/movie_db
+            - name: SPRING_DATASOURCE_USERNAME
+              value: movieuser
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: moviepass
+            - name: ZIPKIN_ENDPOINT
+              value: http://zipkin:9411/api/v2/spans
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8081
+            initialDelaySeconds: 40
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8081
+            initialDelaySeconds: 60
+            periodSeconds: 20
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: movie-service
+spec:
+  type: NodePort
+  selector:
+    app: movie-service
+  ports:
+    - port: 8081
+      targetPort: 8081
+      nodePort: 30081
