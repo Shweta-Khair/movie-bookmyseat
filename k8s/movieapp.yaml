@@ -50,7 +50,7 @@ spec:
           readinessProbe:
             exec:
               command: ["mysqladmin", "ping", "-h", "localhost"]
-            initialDelaySeconds: 10
+            initialDelaySeconds: 20
             periodSeconds: 5
       volumes:
         - name: movie-db-storage
@@ -86,6 +86,10 @@ spec:
       labels:
         app: movie-service
     spec:
+      initContainers:
+        - name: wait-for-movie-db
+          image: busybox:1.34
+          command: ['sh', '-c', 'until nc -z movie-db 3306; do echo waiting for movie-db; sleep 5; done;']
       containers:
         - name: movie-service
           image: 543816070942.dkr.ecr.us-east-1.amazonaws.com/movieapp-backend:29  # replace with actual image
