@@ -165,7 +165,7 @@ spec:
         - name: wait-for-mysql
           image: busybox:1.36
           command:
-            ["sh", "-c", "until nc -z movie-db 3306; do echo waiting for movie-db; sleep 5; done"]
+            ["sh", "-c", "until nc -z movie-db 3306; do echo waiting for movie-db; sleep 30; done"]
       containers:
         - name: movie-service
           image: 543816070942.dkr.ecr.us-east-1.amazonaws.com/movieapp-backend:29
