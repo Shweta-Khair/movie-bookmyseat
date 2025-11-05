@@ -30,7 +30,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: gp2
+  storageClassName: gp2-immediate
   resources:
     requests:
       storage: 1Gi
@@ -41,7 +41,7 @@ metadata:
   name: movie-init-scripts
   namespace: movie
 data:
-  init.sql: |
+  V1__Create_movies_and_showtimes_tables.sql: |
     -- Create movies table
     CREATE TABLE movies (
         id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -71,8 +71,8 @@ data:
         INDEX idx_show_date_time (show_date_time),
         INDEX idx_theater (theater)
     );
-
-    -- Insert sample movies
+  V2__Insert_sample_data.sql: |
+    -- Insert sample movies and showtimes from the migration script
     INSERT INTO movies (title, description, duration_minutes, genre, language, release_date) VALUES
     ('Inception', 'A mind-bending thriller about dreams within dreams', 148, 'Sci-Fi', 'English', '2010-07-16'),
     ('The Dark Knight', 'Batman faces the Joker in this epic superhero film', 152, 'Action', 'English', '2008-07-18'),
@@ -82,16 +82,6 @@ data:
     ('Dangal', 'A biographical sports drama about wrestler Mahavir Singh Phogat', 161, 'Biography', 'Hindi', '2016-12-23'),
     ('3 Idiots', 'Two friends are searching for their long lost companion', 170, 'Comedy', 'Hindi', '2009-12-25'),
     ('Avengers: Endgame', 'The Avengers assemble once more to reverse Thanos snap', 181, 'Action', 'English', '2019-04-26');
-
-    -- Insert sample showtimes
-    INSERT INTO showtimes (movie_id, show_date_time, theater, available_seats) VALUES
-    (1, '2025-09-30 14:00:00', 'Theater 1', 100),
-    (1, '2025-09-30 17:30:00', 'Theater 1', 85),
-    (1, '2025-09-30 21:00:00', 'Theater 2', 120),
-    (2, '2025-09-30 13:30:00', 'Theater 3', 150),
-    (2, '2025-09-30 16:45:00', 'Theater 3', 140),
-    (3, '2025-09-30 18:00:00', 'Theater 2', 110),
-    (3, '2025-09-30 21:30:00', 'Theater 4', 95);
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -99,6 +89,7 @@ metadata:
   name: movie-db
   namespace: movie
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: movie-db
@@ -125,7 +116,7 @@ spec:
             - name: movie-db-data
               mountPath: /var/lib/mysql
             - name: init-db
-              mountPath: /docker-entrypoint-initdb.d
+              mountPath: /docker-entrypoint-initdb.d/
           livenessProbe:
             exec:
               command: ["mysqladmin", "ping", "-h", "localhost"]
@@ -177,9 +168,9 @@ spec:
     spec:
       initContainers:
         - name: wait-for-mysql
-          image: busybox:1.36
+          image: mysql:8.0
           command:
-            ["sh", "-c", "until nc -z movie-db 3306; do echo waiting for movie-db; sleep 15; done"]
+            ["sh", "-c", "until mysql -h movie-db -u movieuser -pmoviepass -e 'SELECT 1' >/dev/null 2>&1; do echo waiting for movie-db; sleep 5; done"]
       containers:
         - name: movie-service
           image: 543816070942.dkr.ecr.us-east-1.amazonaws.com/movieapp-backend:29
