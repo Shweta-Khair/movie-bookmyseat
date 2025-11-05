@@ -71,47 +71,13 @@ data:
 
     -- Insert sample showtimes
     INSERT INTO showtimes (movie_id, show_date_time, theater, available_seats) VALUES
-    -- Inception showtimes
     (1, '2025-09-30 14:00:00', 'Theater 1', 100),
     (1, '2025-09-30 17:30:00', 'Theater 1', 85),
     (1, '2025-09-30 21:00:00', 'Theater 2', 120),
-    (1, '2025-10-01 15:00:00', 'Theater 1', 100),
-
-    -- The Dark Knight showtimes
     (2, '2025-09-30 13:30:00', 'Theater 3', 150),
     (2, '2025-09-30 16:45:00', 'Theater 3', 140),
-    (2, '2025-09-30 20:15:00', 'Theater 3', 135),
-    (2, '2025-10-01 14:30:00', 'Theater 3', 150),
-
-    -- Interstellar showtimes
     (3, '2025-09-30 18:00:00', 'Theater 2', 110),
-    (3, '2025-09-30 21:30:00', 'Theater 4', 95),
-    (3, '2025-10-01 16:00:00', 'Theater 2', 110),
-
-    -- The Godfather showtimes
-    (4, '2025-09-30 19:00:00', 'Theater 5', 80),
-    (4, '2025-10-01 19:30:00', 'Theater 5', 75),
-
-    -- Pulp Fiction showtimes
-    (5, '2025-09-30 15:30:00', 'Theater 4', 90),
-    (5, '2025-09-30 18:45:00', 'Theater 4', 85),
-    (5, '2025-10-01 17:00:00', 'Theater 4', 90),
-
-    -- Dangal showtimes
-    (6, '2025-09-30 16:00:00', 'Theater 6', 130),
-    (6, '2025-09-30 19:30:00', 'Theater 6', 125),
-    (6, '2025-10-01 18:00:00', 'Theater 6', 130),
-
-    -- 3 Idiots showtimes
-    (7, '2025-09-30 14:30:00', 'Theater 7', 140),
-    (7, '2025-09-30 18:00:00', 'Theater 7', 135),
-    (7, '2025-10-01 15:30:00', 'Theater 7', 140),
-
-    -- Avengers: Endgame showtimes
-    (8, '2025-09-30 13:00:00', 'Theater 8', 200),
-    (8, '2025-09-30 16:30:00', 'Theater 8', 190),
-    (8, '2025-09-30 20:00:00', 'Theater 8', 180),
-    (8, '2025-10-01 13:30:00', 'Theater 8', 200);
+    (3, '2025-09-30 21:30:00', 'Theater 4', 95);
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -146,6 +112,16 @@ spec:
               mountPath: /var/lib/mysql
             - name: init-db
               mountPath: /docker-entrypoint-initdb.d
+          livenessProbe:
+            exec:
+              command: ["mysqladmin", "ping", "-h", "localhost"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["mysqladmin", "ping", "-h", "localhost"]
+            initialDelaySeconds: 20
+            periodSeconds: 10
       volumes:
         - name: movie-db-data
           persistentVolumeClaim:
@@ -185,6 +161,11 @@ spec:
       labels:
         app: movie-service
     spec:
+      initContainers:
+        - name: wait-for-mysql
+          image: busybox:1.36
+          command:
+            ["sh", "-c", "until nc -z movie-db 3306; do echo waiting for movie-db; sleep 5; done"]
       containers:
         - name: movie-service
           image: 543816070942.dkr.ecr.us-east-1.amazonaws.com/movieapp-backend:29
