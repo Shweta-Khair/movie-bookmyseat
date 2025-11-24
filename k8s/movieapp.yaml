@@ -50,16 +50,6 @@ spec:
       labels:
         app: movie-db
     spec:
-      initContainers:
-        - name: copy-sql-files
-          image: busybox:1.36
-          command: ['sh', '-c', 'cp /sql-files/*.sql /shared-init/ && ls -la /shared-init/']
-          volumeMounts:
-            - name: sql-files
-              mountPath: /sql-files
-              readOnly: true
-            - name: init-db
-              mountPath: /shared-init
       containers:
         - name: movie-db
           image: mysql:8.0
@@ -94,15 +84,8 @@ spec:
           persistentVolumeClaim:
             claimName: movie-db-pvc
         - name: init-db
-          emptyDir: {}
-        - name: sql-files
-          hostPath:
-            # Update this path to match your actual SQL files location
-            # For Windows: Use forward slashes or the Windows path format
-            # Example: path: "D:/BookMyseat-application-shweta/movie-bookmyseat-nov25/src/main/resources/db/migration"
-            # For Linux: path: "/path/to/movie-bookmyseat-nov25/src/main/resources/db/migration"
-            path: /actual/path/to/movie-bookmyseat-nov25/src/main/resources/db/migration
-            type: Directory
+          configMap:
+            name: movie-init-scripts
 ---
 apiVersion: v1
 kind: Service
