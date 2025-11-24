@@ -101,7 +101,7 @@ spec:
             # For Windows: Use forward slashes or the Windows path format
             # Example: path: "D:/BookMyseat-application-shweta/movie-bookmyseat-nov25/src/main/resources/db/migration"
             # For Linux: path: "/path/to/movie-bookmyseat-nov25/src/main/resources/db/migration"
-            path: /path/to/movie-bookmyseat-nov25/src/main/resources/db/migration
+            path: /actual/path/to/movie-bookmyseat-nov25/src/main/resources/db/migration
             type: Directory
 ---
 apiVersion: v1
